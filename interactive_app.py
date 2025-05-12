@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 import category_encoders as ce
 import itertools # Not strictly used in final app but was in original
+from scipy.stats import chi2_contingency
 
 # --- Page Configuration ---
 st.set_page_config(layout="wide", page_title="上海话数据交互分析平台")
@@ -110,8 +111,8 @@ def load_and_process_data():
         df['gender_code'] = df['gender'].map({'A.男':1, 'B.女':0, 'C.其他':2})
         df['gender_str'] = df['gender_code'].map(gender_mapping_display)
 
-    native_mapping_display = {'A.是，在上海出生并长大': '上海本地人(出生并长大)', 
-                              'B.否，但在上海生活超过5年': '长期居住上海(>5年)', 
+    native_mapping_display = {'A.是，在上海出生并长大': '上海本地人(出生并长大)',
+                              'B.否，但在上海生活超过5年': '长期居住上海(>5年)',
                               'C.否，在上海生活不足5年': '短期居住上海(<5年)'}
     if 'native' in df.columns:
         df['native_flag'] = (df['native'] == 'A.是，在上海出生并长大').astype(int)
@@ -173,9 +174,9 @@ def load_and_process_data():
 
     # Define attitude_cols (inferred and explicit)
     attitude_cols = [
-        'overall_impression', 'shanghainese_attitude', 'identity', 
-        'public_hear_view', 'private_use_view', 'course_attitude', 
-        'young_should', 'social_status_of_shanghainese', 
+        'overall_impression', 'shanghainese_attitude', 'identity',
+        'public_hear_view', 'private_use_view', 'course_attitude',
+        'young_should', 'social_status_of_shanghainese',
         'more_learning_opportunity', 'video_view', 'awkward_score', 'env_support'
     ]
     # Filter out cols not in df from attitude_cols
@@ -265,7 +266,7 @@ if 'native_str' in df_processed.columns:
 selected_natives_str = st.sidebar.multiselect("🏠 选择上海人身份", options=native_str_options, default=native_str_options)
 
 # Apply filters
-filtered_df = df_processed.copy() 
+filtered_df = df_processed.copy()
 if selected_major_codes and 'major' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['major'].isin(selected_major_codes)]
 if selected_grade_codes and 'grade' in filtered_df.columns:
@@ -281,8 +282,8 @@ if selected_natives_str and 'native_str' in filtered_df.columns:
 # Metrics and Grouping Selection
 
 selected_metrics_keys = st.sidebar.multiselect(
-    "📊 选择分析指标 (Y轴)", 
-    options=list(question_cols_display_names.keys()), 
+    "📊 选择分析指标 (Y轴)",
+    options=list(question_cols_display_names.keys()),
     format_func=lambda x: question_cols_display_names[x],
     default=[question_cols[0]] if question_cols else []
 )
@@ -303,7 +304,7 @@ if 'grade_str' in filtered_df.columns and filtered_df['grade_str'].nunique() > 0
 
 if grouping_options_map:
     selected_group_by_key = st.sidebar.selectbox(
-        "🗂️ 选择分组条件 (X轴)", 
+        "🗂️ 选择分组条件 (X轴)",
         options=list(grouping_options_map.keys()),
         format_func=lambda x: grouping_options_map[x],
         index=0
@@ -355,9 +356,9 @@ else:
                          title=fig_title,
                          labels={metric_key: f"均值 - {metric_display_name}", selected_group_by_key: group_by_display_name},
                          color=selected_group_by_key,
-                         text_auto='.2f') 
+                         text_auto='.2f')
             fig.update_layout(
-                xaxis_title=group_by_display_name, 
+                xaxis_title=group_by_display_name,
                 yaxis_title=f"均值 - {metric_display_name}",
                 title_x=0.5,
                 legend_title_text=group_by_display_name
@@ -383,7 +384,7 @@ else:
     if selected_group_by_key:
         display_cols.append(selected_group_by_key)
     display_cols.extend(selected_metrics_keys)
-    display_cols.extend([col for col in ['major_str', 'grade_str', 'Region', 'gender_str', 'native_str'] 
+    display_cols.extend([col for col in ['major_str', 'grade_str', 'Region', 'gender_str', 'native_str']
                     if col != selected_group_by_key and col in filtered_df.columns])
     st.dataframe(filtered_df[list(dict.fromkeys(display_cols))].head(100))
 
@@ -452,7 +453,7 @@ else:
                         elif i == len(threshold_values):
                             count = sum(valid_data[threshold_metric] >= threshold_values[-1])
                         else:
-                            count = sum((valid_data[threshold_metric] >= threshold_values[i-1]) & 
+                            count = sum((valid_data[threshold_metric] >= threshold_values[i-1]) &
                                          (valid_data[threshold_metric] < threshold_values[i]))
                         interval_counts.append(count)
 
@@ -472,8 +473,8 @@ else:
                     with col1:
                         st.subheader("柱状图")
                         fig_bar = px.bar(
-                            threshold_df, 
-                            x='区间', 
+                            threshold_df,
+                            x='区间',
                             y='人数',
                             title=f"'{metric_display_name}' 的阈值分析",
                             text='人数'
@@ -508,7 +509,7 @@ else:
 
                     # Create histogram with threshold lines
                     fig_hist = px.histogram(
-                        valid_data, 
+                        valid_data,
                         x=threshold_metric,
                         nbins=20,
                         title=f"'{metric_display_name}' 的分布直方图",
@@ -518,8 +519,8 @@ else:
                     # Add vertical lines for thresholds
                     for threshold in threshold_values:
                         fig_hist.add_vline(
-                            x=threshold, 
-                            line_dash="dash", 
+                            x=threshold,
+                            line_dash="dash",
                             line_color="red",
                             annotation_text=f"阈值: {threshold}",
                             annotation_position="top right"
@@ -580,6 +581,188 @@ else:
                             mime='text/csv',
                             key="download_descriptive_stats"
                         )
+
+                    # --- Category Table Analysis ---
+                    st.markdown("---")
+                    st.subheader("📊 类别表格分析")
+
+                    enable_category_analysis = st.checkbox("启用类别表格分析", value=False)
+                    show_totals = st.checkbox("显示总计", value=True)
+
+                    if enable_category_analysis:
+                        # Select grouping variable for categories
+                        category_options = []
+                        if 'Region' in filtered_df.columns:
+                            category_options.append(('Region', "地区"))
+                        if 'gender_str' in filtered_df.columns:
+                            category_options.append(('gender_str', "性别"))
+                        if 'native_str' in filtered_df.columns:
+                            category_options.append(('native_str', "上海人身份"))
+                        if 'major_str' in filtered_df.columns and filtered_df['major_str'].nunique() > 0:
+                            category_options.append(('major_str', "专业类型"))
+                        if 'grade_str' in filtered_df.columns and filtered_df['grade_str'].nunique() > 0:
+                            category_options.append(('grade_str', "年级"))
+
+                        if not category_options:
+                            st.warning("没有可用的分类变量。")
+                        else:
+                            # Create a dictionary for the selectbox format_func
+                            category_options_dict = {k: v for k, v in category_options}
+
+                            selected_category = st.selectbox(
+                                "选择类别变量",
+                                options=[k for k, _ in category_options],
+                                format_func=lambda x: category_options_dict.get(x, x),
+                                key="category_select"
+                            )
+
+                            if selected_category:
+                                # Get unique categories
+                                categories = sorted(valid_data[selected_category].dropna().unique())
+
+                                if len(categories) > 0:
+                                    # Allow user to select which categories to include
+                                    selected_categories = st.multiselect(
+                                        "选择要包含的类别",
+                                        options=categories,
+                                        default=categories,
+                                        key="selected_categories"
+                                    )
+
+                                    # Add custom group functionality
+                                    st.subheader("自定义聚合群体")
+                                    enable_custom_groups = st.checkbox("启用自定义聚合群体", value=False)
+
+                                    custom_groups = {}
+                                    if enable_custom_groups:
+                                        st.write("创建自定义群体（将多个类别聚合为一个群体）")
+
+                                        # UI for creating custom groups
+                                        col1, col2 = st.columns([1, 2])
+                                        with col1:
+                                            custom_group_name = st.text_input("群体名称", key="custom_group_name")
+                                        with col2:
+                                            group_categories = st.multiselect(
+                                                "选择要聚合的类别",
+                                                options=categories,
+                                                key="group_categories"
+                                            )
+
+                                        if st.button("添加自定义群体", key="add_custom_group"):
+                                            if custom_group_name and group_categories:
+                                                custom_groups[custom_group_name] = group_categories
+                                                st.success(f"已添加自定义群体: {custom_group_name}")
+
+                                        # Display current custom groups
+                                        if 'custom_groups' in st.session_state:
+                                            for name, cats in st.session_state.custom_groups.items():
+                                                st.write(f"- {name}: {', '.join(cats)}")
+
+                                        # Store custom groups in session state
+                                        if custom_groups:
+                                            if 'custom_groups' not in st.session_state:
+                                                st.session_state.custom_groups = {}
+                                            st.session_state.custom_groups.update(custom_groups)
+
+                                    # Get custom groups from session state
+                                    if 'custom_groups' in st.session_state:
+                                        custom_groups = st.session_state.custom_groups
+
+                                    if selected_categories or custom_groups:
+                                        # Create interval labels (same as before)
+                                        interval_labels = []
+                                        for i in range(len(threshold_values) + 1):
+                                            if i == 0:
+                                                interval_labels.append(f"< {threshold_values[0]}")
+                                            elif i == len(threshold_values):
+                                                interval_labels.append(f">= {threshold_values[-1]}")
+                                            else:
+                                                interval_labels.append(f"{threshold_values[i-1]} - {threshold_values[i]}")
+
+                                        # Get all categories that need to be included (selected categories + all categories in any custom group)
+                                        categories_to_include = set(selected_categories) if selected_categories else set()
+                                        for group_name, group_cats in custom_groups.items():
+                                            categories_to_include.update(group_cats)
+
+                                        # Filter data to include all necessary categories
+                                        category_data = valid_data[valid_data[selected_category].isin(categories_to_include)] if categories_to_include else valid_data
+
+                                        # Combine selected categories with custom groups
+                                        all_categories = list(selected_categories) if selected_categories else []
+                                        for group_name in custom_groups:
+                                            if group_name not in all_categories:
+                                                all_categories.append(group_name)
+
+                                        # Create contingency table with categories as rows and intervals as columns
+                                        contingency_table = np.zeros((len(all_categories), len(interval_labels)))
+
+                                        # Fill contingency table
+                                        for i, category in enumerate(all_categories):
+                                            # Check if this is a custom group
+                                            if category in custom_groups:
+                                                # Combine data from multiple categories
+                                                group_categories = custom_groups[category]
+                                                category_subset = category_data[category_data[selected_category].isin(group_categories)]
+                                            else:
+                                                # Regular category
+                                                category_subset = category_data[category_data[selected_category] == category]
+
+                                            for j, interval in enumerate(interval_labels):
+                                                if j == 0:  # First interval
+                                                    count = sum(category_subset[threshold_metric] < threshold_values[0])
+                                                elif j == len(threshold_values):  # Last interval
+                                                    count = sum(category_subset[threshold_metric] >= threshold_values[-1])
+                                                else:  # Middle intervals
+                                                    count = sum((category_subset[threshold_metric] >= threshold_values[j-1]) &
+                                                                (category_subset[threshold_metric] < threshold_values[j]))
+
+                                                contingency_table[i, j] = count
+
+                                        # Calculate row totals (for categories)
+                                        category_totals = np.sum(contingency_table, axis=1)
+
+                                        # Calculate column totals (for intervals)
+                                        interval_totals = np.sum(contingency_table, axis=0)
+
+                                        # Perform chi-square test if we have enough data
+                                        if np.sum(contingency_table) > 0 and np.all(category_totals > 0) and np.all(interval_totals > 0):
+                                            chi2, p, dof, expected = chi2_contingency(contingency_table)
+                                            chi2_result = f"χ² = {chi2:.2f}, p = {p:.4f}"
+                                        else:
+                                            chi2_result = "数据不足，无法进行卡方检验"
+
+                                        # Create DataFrame for display with categories as rows and intervals as columns
+                                        category_table = pd.DataFrame(contingency_table, index=all_categories, columns=interval_labels)
+
+                                        # Add row totals (for categories) if show_totals is checked
+                                        if show_totals:
+                                            category_table['总计'] = category_totals
+
+                                            # Add column totals (for intervals)
+                                            category_table.loc['总计'] = list(interval_totals) + [np.sum(contingency_table)]
+
+                                        # Always add chi-square test results regardless of show_totals
+                                        # Ensure the chi-square test row has the same number of columns as the table
+                                        empty_values = [''] * (len(category_table.columns) - 1)
+                                        category_table.loc['卡方检验'] = [chi2_result] + empty_values
+
+                                        # Display the table
+                                        st.subheader(f"按 {category_options_dict.get(selected_category, selected_category)} 分类的区间统计表")
+                                        st.dataframe(category_table)
+
+                                        # Add download button for category table
+                                        csv_category_table = category_table.to_csv(index=True).encode('utf-8-sig')
+                                        st.download_button(
+                                            label=f"📥 下载类别表格数据 (CSV)",
+                                            data=csv_category_table,
+                                            file_name=f"{threshold_metric}_category_analysis.csv",
+                                            mime='text/csv',
+                                            key="download_category_analysis"
+                                        )
+                                    else:
+                                        st.warning("请选择至少一个类别或创建自定义聚合群体。")
+                                else:
+                                    st.warning(f"选定的类别变量 '{category_options_dict.get(selected_category, selected_category)}' 没有有效数据。")
 
 # --- Encoding Information ---
 with st.expander("ℹ️ 查看编码说明和原始问卷信息"):
